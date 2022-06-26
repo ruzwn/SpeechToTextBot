@@ -7,7 +7,7 @@ internal static class Program
 {
 	private static async Task Main(string[] args)
 	{
-		var botClient = new TelegramBotClient("5461040340:AAHaNGnaZc9l3kEAlzT_g0wBg0knmmeG8ls");
+		var botClient = new TelegramBotClient("TOKEN");
 
 		var me = await botClient.GetMeAsync();
 		Console.WriteLine($"Id: {me.Id}; Name: {me.Username}");
