@@ -7,16 +7,17 @@ namespace SpeechToTextBot;
 
 public class UpdateHandler : IUpdateHandler
 {
+    private readonly HttpClient _httpClient = new();
+
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        // Check that Message and Voice
-        Message? message = update?.Message;
+        var message = update.Message;
         if (message == null)
         {
             return;
         }
 
-        Voice? voice = message?.Voice;
+        var voice = message.Voice;
         if (voice == null)
         {
             await botClient.SendTextMessageAsync(
@@ -28,27 +29,17 @@ public class UpdateHandler : IUpdateHandler
             return;
         }
 
-        // Save received file
-        Directory.CreateDirectory("./voices");
-        var fileName = $"./voices/voice-{voice.FileId}.mp3";
-        Telegram.Bot.Types.File fileInfo = await botClient.GetFileAsync(voice.FileId, cancellationToken: cancellationToken);
-        await using (var fileStream = System.IO.File.Create(fileName))
-        {
-            await botClient.DownloadFileAsync(
-                filePath: fileInfo.FilePath,
-                destination: fileStream,
-                cancellationToken: cancellationToken
-            );
-        }
+        var fileInfo = await botClient.GetFileAsync(voice.FileId, cancellationToken);
+        var requestUri = "https://api.telegram.org/file/bot" + Program.BotToken + $"/{fileInfo.FilePath}";
+        var response = await _httpClient.GetAsync(requestUri, cancellationToken);
+        var fileBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
 
-        // Send audio to Yandex API ...        ??? GRPC ???
-        var textOfAudio = await YandexAPI.GetTextOfAudio(fileName);
+        var text = await YandexAPI.GetTextOfAudio(fileBytes);
 
         await botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
-            text: $"Voice succesfully sent and saved. You said: {textOfAudio}",
-            cancellationToken: cancellationToken
-        );
+            text: text,
+            cancellationToken: cancellationToken);
     }
 
     public Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
